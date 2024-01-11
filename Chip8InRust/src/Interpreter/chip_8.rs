@@ -32,7 +32,7 @@ pub struct Chip8
     // Keyboard
     Keyboard: [bool; TOTAL_KEYS], 
     KeyboardMap: [Keycode; TOTAL_KEYS],
-    DefaultCharset: [u8; 80],
+    pub DefaultCharset: [u8; 80],
 
     // Stack
     
@@ -54,7 +54,7 @@ impl Default for Chip8
                 Keycode::Num4, Keycode::Num5, Keycode::Num6, Keycode::Num7,
                 Keycode::Num8, Keycode::Num9, Keycode::A, Keycode::B, 
                 Keycode::C, Keycode::D, Keycode::E, Keycode::F
-            ]
+            ],
             DefaultCharset: [
                 0xF0, 0x90, 0x90, 0x90, 0xF0,
                 0x20, 0x60, 0x20, 0x20, 0x70,
@@ -72,7 +72,7 @@ impl Default for Chip8
                 0xE0, 0x90, 0x90, 0x90, 0xE0, 
                 0xF0, 0x80, 0xF0, 0x80, 0xF0, 
                 0xF0, 0x80, 0xF0, 0x80, 0x80
-            ]
+            ],
         }
     }
 }
@@ -135,22 +135,19 @@ impl Chip8
     return pixel_collision;
 }
      */
-    /*
-    Tips to how I should handle it in rust:
-
-    pub fn DrawSprite(&self, x: i32, y: i32, sprite: u8, num: i32) -> bool
+    pub fn DrawSprite(&mut self, x: usize, y: usize, sprite: &[u8], num: usize) -> bool
     {
-        let mut collision = false;
-        for ly in num 
+        let mut collision: bool = false;
+        for ly in 0..num 
         {
-
-            for lx in num
+            for lx in 0..num
             {
-
+                collision = self.Pixels[(lx + x) % DISPLAY_WIDTH][(ly + y) % DISPLAY_HEIGHT];
+                self.Pixels[(lx + x) % DISPLAY_WIDTH][(ly + y) % DISPLAY_HEIGHT] ^= true;
             }
         }
+        return collision;
     }
-    */
 
     pub fn DisplayClear(&mut self)
     {

@@ -24,6 +24,22 @@ fn PixelSetTest()
     assert_eq!(true, sut.PixelIsSet(0, 0));
 }
 
+#[test]
+fn DrawSpriteTest()
+{
+    let mut sut: Chip8 = Default::default();
+    sut.DrawSprite(0, 0, &[sut.DefaultCharset[0]], 5);
+    let mut check = true;
+
+    // Checks first and second column
+    check &= sut.PixelIsSet(0, 0);
+    check &= sut.PixelIsSet(0, 1);
+    check &= sut.PixelIsSet(0, 2);
+    check &= sut.PixelIsSet(0, 3);
+    check &= sut.PixelIsSet(1, 0);
+    check &= sut.PixelIsSet(0, 3);
+    assert_eq!(true, check);
+}
 
 #[test]
 fn DisplayClearTest()
