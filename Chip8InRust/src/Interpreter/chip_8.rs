@@ -35,7 +35,15 @@ pub struct Chip8
     pub DefaultCharset: [u8; 80],
 
     // Stack
-    
+    Stack: [u16; STACK_DEPTH],
+
+    // Registers
+    V: [u8; NO_OF_REGISTERS],
+    I: u16,
+    DT: u8,
+    ST: u8,
+    PC: u16,
+    SP: u8
 
 
 
@@ -73,6 +81,13 @@ impl Default for Chip8
                 0xF0, 0x80, 0xF0, 0x80, 0xF0, 
                 0xF0, 0x80, 0xF0, 0x80, 0x80
             ],
+            Stack: [0; STACK_DEPTH],
+            V: [0; NO_OF_REGISTERS],
+            I: 0,
+            DT: 0,
+            ST: 0,
+            PC: 0,
+            SP: 0
         }
     }
 }
@@ -108,33 +123,6 @@ impl Chip8
         return self.Pixels[x][y];
     }
 
-
-    /*
-    What i had in C:
-
-    bool chip8_display_draw_sprite(struct chip8_display *display,
-    int x, int y,
-    const char *sprite, 
-    int num)
-{
-    bool pixel_collision = false;
-
-    for (int ly = 0; ly < num; ly++)
-    {
-        char c = sprite[ly];
-        for(int lx = 0; lx < num; lx++)
-        {
-            if ((c & (0b10000000 >> lx)) == 0)
-                continue;
-            
-            pixel_collision = display->pixels[(lx + x) % DISPLAY_WIDTH][(ly + y) % DISPLAY_HEIGHT];
-            display->pixels[(lx + x) % DISPLAY_WIDTH][(ly + y) % DISPLAY_HEIGHT] ^= true;
-        }
-    }
-
-    return pixel_collision;
-}
-     */
     pub fn DrawSprite(&mut self, x: usize, y: usize, sprite: &[u8], num: usize) -> bool
     {
         let mut collision: bool = false;
@@ -154,6 +142,7 @@ impl Chip8
         self.Pixels = [[false; DISPLAY_WIDTH]; DISPLAY_HEIGHT];
     }
 
+    // Keyboard
     pub fn KeyboardSwitchState(&mut self, key: usize)
     {
         self.Keyboard[key] = !self.Keyboard[key];
@@ -162,5 +151,17 @@ impl Chip8
     pub fn KeyboardIsDown(&self, key: usize) -> bool 
     {
         return self.Keyboard[key];
+    }
+
+    // Stack
+    pub fn StackPush(&mut self, val: u16)
+    {
+        self.SP += 1;
+        self.Stack[self.SP as usize] = val;
+    }
+    pub fn StackPop(&mut self) -> u16
+    {
+        self.SP -= 1;
+        return self.Stack[self.SP as usize];
     }
 }
