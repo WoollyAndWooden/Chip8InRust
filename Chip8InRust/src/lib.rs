@@ -42,6 +42,32 @@ fn DrawSpriteTest()
 }
 
 #[test]
+fn DrawSpriteCollisionTest()
+{
+    let mut sut: Chip8 = Default::default();
+    sut.DrawSprite(0, 0, &[sut.DefaultCharset[0]], 5);
+    sut.DrawSprite(1, 0, &[sut.DefaultCharset[0]], 5);
+
+    // On collision pixels should XOR themselves
+    ;
+    assert_eq!(false, sut.PixelIsSet(1, 0));
+}
+
+#[test]
+fn DrawSpriteWrapAroundTest()
+{
+    let mut sut: Chip8 = Default::default();
+    sut.DrawSprite(30, 0, &[sut.DefaultCharset[0]], 5);
+    let mut check = true;
+
+    // Checks first and second column
+    check &= sut.PixelIsSet(0, 0);
+    check &= sut.PixelIsSet(30, 0);
+    assert_eq!(true, check);
+}
+
+
+#[test]
 fn DisplayClearTest()
 {
     let mut sut: Chip8 = Default::default();

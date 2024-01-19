@@ -138,12 +138,12 @@ impl Chip8
     pub fn DrawSprite(&mut self, x: usize, y: usize, sprite: &[u8], num: usize) -> bool
     {
         let mut collision: bool = false;
-        for ly in 0..num 
+        for ly in 0..num-1 
         {
-            for lx in 0..num
+            for lx in 0..num-1
             {
-                collision = self.Pixels[(lx + x) % DISPLAY_WIDTH][(ly + y) % DISPLAY_HEIGHT];
-                self.Pixels[(lx + x) % DISPLAY_WIDTH][(ly + y) % DISPLAY_HEIGHT] ^= true;
+                collision = self.Pixels[(lx + x) % DISPLAY_HEIGHT][(ly + y) % DISPLAY_WIDTH];
+                self.Pixels[(lx + x) % DISPLAY_HEIGHT][(ly + y) % DISPLAY_HEIGHT] ^= true;
             }
         }
         return collision;
