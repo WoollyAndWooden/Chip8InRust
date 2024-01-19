@@ -1,4 +1,4 @@
-use sdl2::keyboard::Keycode;
+use sdl2::{keyboard::Keycode, sys::{SDL_Event, SDL_WaitEvent}};
 
 // Memory
 const MEMORY_SIZE: u16 = 4096;
@@ -19,6 +19,28 @@ const STACK_DEPTH: usize = 16;
 const TOTAL_KEYS: usize = 16;
 const CHARSET_LOAD_ADDRESS: u8 = 0x00;
 const DEFAULT_SPRITE_HEIGHT: usize = 5;
+
+// Masks to get specufic bits of the opcode
+fn _get_nnn(opcode: u16) -> u16
+{
+    return opcode & 0x0fff;
+}
+fn _get_x(opcode: u16) -> u16
+{
+    return (opcode >> 8) & 0x0f;
+}
+fn _get_y(opcode: u16) -> u16
+{
+    return (opcode >> 4) & 0x00f;
+}
+fn _get_kk(opcode: u16) -> u16
+{
+    return opcode & 0x00ff;
+}
+fn _get_last(opcode: u16) -> u16
+{
+    return opcode & 0x000f;
+}
 
 
 pub struct Chip8
@@ -123,7 +145,7 @@ impl Chip8
         return self.Pixels[x][y];
     }
 
-    pub fn DrawSprite(&mut self, x: usize, y: usize, sprite: &[u8], num: usize) -> bool
+    pub fn DrawSprite(&mut self, x: usize, y: usize, _sprite: &[u8], num: usize) -> bool
     {
         let mut collision: bool = false;
         for ly in 0..num-1 
@@ -161,7 +183,228 @@ impl Chip8
     }
     pub fn StackPop(&mut self) -> u16
     {
+        let val = self.Stack[self.SP as usize];
         self.SP -= 1;
-        return self.Stack[self.SP as usize];
+        return val;
     }
+
+    // Program takes from ROM 4 bytes of opcode, and simulates CHIP-8's instruction set. _0x8 executes all operations from opcodes matching 0x8***, _0xF executes 0xF*** commands. Rest are in main exec function.
+    fn _0x8(&mut self, opcode: u16)
+    {
+        let x = _get_x(opcode) as usize;
+        let y = _get_y(opcode) as usize;
+        let last = _get_last(opcode) as usize;
+
+        if(last == 0x0)
+        {
+            self.V[x as usize] = self.V[y];
+        }
+        else if(last == 0x1)
+        {
+            self.V[x] = self.V[x] | self.V[y];
+        }
+        else if(last == 0x2)
+        {
+            self.V[x] = self.V[x] & self.V[y];
+        }
+        else if(last == 0x3)
+        {
+            self.V[x] = self.V[x] ^ self.V[y];
+        }
+        else if(last == 0x4)
+        {
+            let check = self.V[x] + self.V[y] > 0xff;
+            self.V[x] += self.V[y];
+            self.V[0xf] = check as u8;
+        }
+        else if(last == 0x5)
+        {
+            let check = self.V[x] >= self.V[y];
+            self.V[x] -= self.V[y];
+            self.V[0xf] = check as u8;
+        }
+        else if(last == 0x6)
+        {
+            let check = _get_last(self.V[x].into()) & 0b0001;
+            self.V[x] /= 2;
+            self.V[0xf] = check as u8;
+        }
+        else if(last == 0x7)
+        {
+
+            self.V[x] = self.V[y] - self.V[x];
+            self.V[0xf] = (self.V[y] >= self.V[x]) as u8;
+        }
+        else if(last == 0xE)
+        {
+            let check = self.V[x] >> 7;
+            self.V[x] *= 2;
+            self.V[0xf] = check as u8;
+        }
+        
+    }
+
+    fn _0xF(&mut self, opcode: u16)
+    {
+        let x = _get_x(opcode) as usize;
+        let kk = _get_kk(opcode);
+        if kk == 0x07
+        {
+            self.V[x] = self.DT;
+        }
+        else if kk == 0x0A
+        {
+            // KEYBOARD NOT IMPLEMENTED PROPERLY YET
+        }
+        else if kk == 0x15
+        {
+            self.DT = self.V[x];
+        }
+        else if kk == 0x18
+        {
+            self.ST = self.V[x];
+        }
+        else if kk == 0x1E
+        {
+            self.I += self.V[x] as u16;
+        }
+        else if kk == 0x29
+        {
+            self.I += self.V[x] as u16 * DEFAULT_SPRITE_HEIGHT as u16;
+        }
+        // LD B, Vx: Store BCD representation of Vx in memory locations I (hundreds), I+1 (tens) and I+2 (units)
+        else if kk == 0x33
+        {
+            self.MemorySet(self.I as usize, self.V[x] / 100);
+            self.MemorySet(self.I as usize +1, self.V[x] / 10 % 10);
+            self.MemorySet(self.I as usize +2, self.V[x] % 10);
+        }
+        else if kk == 0x55
+        {
+            for i in 0..x
+            {
+                self.MemorySet(self.I as usize + 1, self.V[i]);
+            }
+        }
+        else if kk == 0x65
+        {
+            for i in 0..x
+            {
+                 self.V[i] = self.MemoryGet(self.I as usize);
+            }
+        }
+
+    }
+
+    fn _extend_execute(&mut self, opcode: u16)
+    {
+        let opcodeCheck = opcode & 0xF000;
+        if opcodeCheck == 0x1000
+        {
+            self.PC = _get_nnn(opcode);
+        }
+        else if opcodeCheck == 0x2000
+        {
+            self.StackPush(self.PC);
+            self.PC = _get_nnn(opcode);
+        }
+        else if opcodeCheck == 0x3000
+        {
+            if self.V[_get_x(opcode) as usize] as u16 == _get_kk(opcode)
+            {
+                self.PC += 2;
+            }
+        }
+        else if opcodeCheck == 0x4000
+        {
+            if self.V[_get_x(opcode) as usize] as u16 != _get_kk(opcode)
+            {
+                self.PC += 2;
+            }
+        }
+        else if opcodeCheck == 0x5000
+        {
+            if self.V[_get_x(opcode) as usize] == self.V[_get_y(opcode) as usize]
+            {
+                self.PC += 2;
+            }
+        }
+        else if opcodeCheck == 0x6000
+        {
+            self.V[_get_x(opcode) as usize] = _get_kk(opcode) as u8;
+        }
+        else if opcodeCheck == 0x7000
+        {
+            self.V[_get_x(opcode) as usize] += _get_kk(opcode) as u8;
+        }
+        else if opcodeCheck == 0x8000
+        {
+            self._0x8(opcode);
+        }
+        else if opcodeCheck == 0x9000
+        {
+            if self.V[_get_x(opcode) as usize] != self.V[_get_y(opcode) as usize]
+            {
+                self.PC += 2;
+            }
+        }
+        else if opcodeCheck == 0xA000
+        {
+            self.I = _get_nnn(opcode);
+        }
+        else if opcodeCheck == 0xB000
+        {
+            self.PC = _get_nnn(opcode) + self.V[0] as u16;
+        }
+        else if opcodeCheck == 0xC000
+        {
+            self.V[_get_x(opcode) as usize] = rand::random::<u8>();
+        }
+        else if opcodeCheck == 0xD000
+        {
+            let nibble = _get_last(opcode);
+            let x = _get_x(opcode) as usize;
+            let y = _get_y(opcode) as usize;
+            self.DrawSprite(self.V[x].into(), self.V[y].into(), &[self.Memory[self.I as usize]], nibble as usize);
+        }
+        else if opcodeCheck == 0xE000
+        {
+            let kk = _get_kk(opcode);
+            if kk == 0x9E
+            {
+                if self.KeyboardIsDown(self.V[_get_x(opcode) as usize].into())
+                {
+                    self.PC += 2;
+                }
+            }
+            if kk == 0xA1
+            {
+                if !self.KeyboardIsDown(self.V[_get_x(opcode) as usize].into())
+                {
+                    self.PC += 2;
+                }
+            }
+        }
+        else if opcodeCheck == 0xF000
+        {
+            self._0xF(opcode);
+        }
+    }
+
+    pub fn execute(&mut self, opcode: u16)
+    {
+        if opcode == 0x00E0
+        {
+            self.DisplayClear();
+        }
+        if opcode == 0x00EE
+        {
+            self.PC = self.StackPop();
+        }
+        else 
+        {
+            self._extend_execute(opcode);   
+        }
+    }
+
 }

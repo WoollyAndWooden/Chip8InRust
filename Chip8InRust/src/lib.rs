@@ -93,3 +93,10 @@ fn KeyboardSwitchStateTest2()
     assert_eq!(false, sut.KeyboardIsDown(0));
 }
 
+#[test]
+fn StackTest(){
+    let mut sut: Chip8 = Default::default();
+    let val: u16 = 0xAB12;
+    sut.StackPush(val);
+    assert_eq!(0xAB12, sut.StackPop());
+}
